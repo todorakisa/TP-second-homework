@@ -10,6 +10,9 @@ class NotesController < ApplicationController
   # GET /notes/1
   # GET /notes/1.json
   def show
+    @note=Note.find_by slug:params[:slug]
+    p params[:slug]
+    @note.destroy
   end
 
   # GET /notes/new
@@ -24,17 +27,30 @@ class NotesController < ApplicationController
   # POST /notes
   # POST /notes.json
   def create
-    @note = Note.new(note_params)
-
-    respond_to do |format|
+    if request.content_type =~ /xml/
+      params[:message] = Hash.from_xml(request.body.read)["message"]
+      note = Note.create(content: params[:message])
+      render xml:
+      '<?xml version = "1.0" encoding = "UTF-8" standalone = "yes"?>' +
+      '<url>' +
+        notes_url + '/' + note.slug +  
+      '</url>'
+    elsif request.content_type =~ /json/
+      note = Note.create(content: params[:message])
+      render json: {url: notes_url + "/" + note.slug }
+    elsif request.content_type =~ /form/
+      @note = Note.new({content: params[:note][:content]})
+      p @note
       if @note.save
-        format.html { render "info", locals: {url: "tp-second-homework.herokuapp.com/notes/" + @note.id.to_s } }
-        format.json { render :show, status: :created, location: @note }
+        redirect_to notes_url + "/" + @note.slug  + '/info'
       else
-        format.html { render :new }
-        format.json { render json: @note.errors, status: :unprocessable_entity }
+        render 'index'
       end
     end
+  end
+
+  def info
+    render "info", locals: {url: notes_url + "/" + params[:slug]}
   end
 
   # PATCH/PUT /notes/1
@@ -50,6 +66,8 @@ class NotesController < ApplicationController
       end
     end
   end
+  
+
 
   # DELETE /notes/1
   # DELETE /notes/1.json
@@ -64,7 +82,7 @@ class NotesController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_note
-      @note = Note.find(params[:id])
+      @note = Note.find_by slug:params[:slug]
     end
 
     # Never trust parameters from the scary internet, only allow the white list through.
